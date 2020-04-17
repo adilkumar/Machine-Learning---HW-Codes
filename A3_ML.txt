@@ -1,0 +1,236 @@
+# read in data
+setwd("C:/Users/Adil Ashish Kumar/Desktop/674 - ML/A3")
+
+test= read.table("GradedHW1-Test-Data.csv",header=T,sep=",",
+                 stringsAsFactors = F,na.strings="")
+
+train= read.table("GradedHW1-Train-Data.csv",header=T,sep=",",
+                  stringsAsFactors = F,na.strings="")
+
+val= read.table("GradedHW1-Validation-Data.csv",header=T,sep=",",
+                stringsAsFactors = F,na.strings="")
+
+
+#building age
+test$Building_Age = 2010 - test$Year.Built
+train$Building_Age = 2010 - train$Year.Built
+val$Building_Age = 2010 - val$Year.Built
+
+# keep necessary columns
+fil=c("Lot.Area","Total.Bsmt.SF","Gr.Liv.Area","Full.Bath","Bedroom.AbvGr","Building_Age","SalePrice")
+
+train2 = train[fil]
+val2 = val[fil]
+test2 = test[fil]
+
+val2 = na.omit(val2)
+
+xtest = test2
+xtest$SalePrice = NULL
+xval = val2
+xval$SalePrice = NULL
+
+xtrain = train2
+xtrain$SalePrice = NULL
+
+
+
+# tree parameters setup
+tc <- tree.control(nrow(train2),minsize=2,mincut=1,mindev=0.00)
+out <- tree(SalePrice ~ .,data=train2,control=tc)
+#out1 <- prune.tree(out,best=20)
+
+# y variables
+yval = val2$SalePrice
+ytest = test2$SalePrice
+ytrain = train2$SalePrice
+
+# validation rmses for reg trees
+df2= NULL
+df1=NULL
+j=20
+for (i in 20:60)
+{
+  out1 <- prune.tree(out,best=i)
+  pred = predict(out1,newdata=xval)
+  rmscal = cbind(pred,yval)
+  rmscal = as.data.frame(rmscal)
+  rmscal$rms = (rmscal$pred - rmscal$yval)^2
+  rmse = (sum(rmscal$rms)/length(rmscal$pred))^0.5
+  df1$K = j
+  df1$rmse = rmse
+  df2 = rbind(df2,df1)
+  df1=NULL
+  rmscal=NULL
+  j=j+1
+}
+
+
+df3 = as.data.frame(df2)
+df3$K = as.numeric(df3$K)
+df3$rmse = as.numeric(df3$rmse)
+# Q1
+plot(df3$K,df3$rmse,xlab = "K",ylab = "RMSE",title("Q1. K vs RMSE on Validation set - Regression trees"))
+
+# RMSE on test data for best K
+out2 <- prune.tree(out,best=45)
+pred2 = predict(out2,newdata=xtest)
+rmscal2 = cbind(pred2,ytest)
+rmscal2 = as.data.frame(rmscal2)
+rmscal2$rms = (rmscal2$pred2 - rmscal2$ytest)^2
+rmsetest = (sum(rmscal2$rms)/length(rmscal2$pred))^0.5
+
+# RMSE on train data for best K
+pred3 = predict(out2,newdata=xtrain)
+rmscal3 = cbind(pred3,ytrain)
+rmscal3 = as.data.frame(rmscal3)
+rmscal3$rms = (rmscal3$pred3 - rmscal3$ytrain)^2
+rmsetrain = (sum(rmscal3$rms)/length(rmscal3$pred))^0.5
+
+
+if(!require("randomForest")) { install.packages("randomForest"); require("randomForest") }
+
+df2= NULL
+df1=NULL
+j=20
+for (i in 20:60)
+{
+  out3 <- randomForest(SalePrice ~ .,data=train2, mtry=1,ntree=5000,maxnodes=i)
+  pred = predict(out3,newdata=xval)
+  rmscal = cbind(pred,yval)
+  rmscal = as.data.frame(rmscal)
+  rmscal$rms = (rmscal$pred - rmscal$yval)^2
+  rmscal<- na.omit(rmscal) 
+  rmse = (sum(rmscal$rms)/length(rmscal$pred))^0.5
+  df1$K = j
+  df1$rmse = rmse
+  df2 = rbind(df2,df1)
+  df1=NULL
+  rmscal=NULL
+  j=j+1
+}
+
+
+df4 = as.data.frame(df2)
+df4$K = as.numeric(df4$K)
+df4$rmse = as.numeric(df4$rmse)
+# Q1
+plot(df4$K,df4$rmse,xlab = "K",ylab = "RMSE",title("Q3. K vs RMSE on Validation set - Random Forest"))
+
+# RMSE on test data for best K
+out4 <- randomForest(SalePrice ~ .,data=train2, mtry=1,ntree=5000,maxnodes=60)
+pred4 = predict(out4,newdata=xtest)
+rmscal4 = cbind(pred4,ytest)
+rmscal4 = as.data.frame(rmscal4)
+rmscal4$rms = (rmscal4$pred4 - rmscal4$ytest)^2
+rmserftest = (sum(rmscal4$rms)/length(rmscal4$pred))^0.5
+
+# RMSE on train data for best K
+pred5 = predict(out4,newdata=xtrain)
+rmscal5 = cbind(pred5,ytrain)
+rmscal5 = as.data.frame(rmscal5)
+rmscal5$rms = (rmscal5$pred5 - rmscal5$ytrain)^2
+rmserftrain = (sum(rmscal5$rms)/length(rmscal5$pred))^0.5
+
+
+
+
+# Read in Output from AutoNN and make plots ----------------------------------------------
+
+AutoDataOut <- read.table("trainOut.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+AutoDataGridOut <- read.table("trainGridOut.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+
+if(!require("rgl")) { install.packages("rgl"); require("rgl") }
+
+GridN <- sqrt(nrow(AutoDataGridOut))
+x1g <- matrix(AutoDataGridOut$x1g,ncol=GridN)
+x2g <- matrix(AutoDataGridOut$x2g,ncol=GridN)
+Ygrid <- matrix(AutoDataGridOut$Ygrid,ncol=GridN)
+
+tmp1 <- plot3d(train$Gr.Liv.Area,train$Building_Age ,train$SalePrice,type="p",box=T,axes=T,size=5)
+rgl.bringtotop(stay=T)
+par3d(windowRect=c(630,33,1354,727)) # Positions the rgl window on my computer.
+
+persp3d(x1g,x2g,Ygrid,front="lines",back="lines",add=T)
+play3d(spin3d(axis=c(0,0,1),rpm=3))
+
+
+
+#Q5
+
+
+AutoDataOut <- read.table("train2Out.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+AutoDataGridOut <- read.table("train2GridOut.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+
+if(!require("rgl")) { install.packages("rgl"); require("rgl") }
+
+GridN <- sqrt(nrow(AutoDataGridOut))
+x1g <- matrix(AutoDataGridOut$x1g,ncol=GridN)
+x2g <- matrix(AutoDataGridOut$x2g,ncol=GridN)
+Ygrid <- matrix(AutoDataGridOut$Ygrid,ncol=GridN)
+
+tmp1 <- plot3d(train$Gr.Liv.Area,train$Building_Age ,train$SalePrice,type="p",box=T,axes=T,size=5)
+rgl.bringtotop(stay=T)
+par3d(windowRect=c(630,33,1354,727)) # Positions the rgl window on my computer.
+
+persp3d(x1g,x2g,Ygrid,front="lines",back="lines",add=T)
+play3d(spin3d(axis=c(0,0,1),rpm=3))
+
+#Q6
+
+AutoDataOut <- read.table("train3Out.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+AutoDataGridOut <- read.table("train3GridOut.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+
+if(!require("rgl")) { install.packages("rgl"); require("rgl") }
+
+GridN <- sqrt(nrow(AutoDataGridOut))
+x1g <- matrix(AutoDataGridOut$x1g,ncol=GridN)
+x2g <- matrix(AutoDataGridOut$x2g,ncol=GridN)
+Ygrid <- matrix(AutoDataGridOut$Ygrid,ncol=GridN)
+
+tmp1 <- plot3d(train$Gr.Liv.Area,train$Building_Age ,train$SalePrice,type="p",box=T,axes=T,size=5)
+rgl.bringtotop(stay=T)
+par3d(windowRect=c(630,33,1354,727)) # Positions the rgl window on my computer.
+
+persp3d(x1g,x2g,Ygrid,front="lines",back="lines",add=T)
+play3d(spin3d(axis=c(0,0,1),rpm=3))
+
+
+#Q7
+
+AutoDataOut <- read.table("train4Out.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+AutoDataGridOut <- read.table("train4GridOut.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+
+if(!require("rgl")) { install.packages("rgl"); require("rgl") }
+
+GridN <- sqrt(nrow(AutoDataGridOut))
+x1g <- matrix(AutoDataGridOut$x1g,ncol=GridN)
+x2g <- matrix(AutoDataGridOut$x2g,ncol=GridN)
+Ygrid <- matrix(AutoDataGridOut$Ygrid,ncol=GridN)
+
+tmp1 <- plot3d(train$Gr.Liv.Area,train$Building_Age ,train$SalePrice,type="p",box=T,axes=T,size=5)
+rgl.bringtotop(stay=T)
+par3d(windowRect=c(630,33,1354,727)) # Positions the rgl window on my computer.
+
+persp3d(x1g,x2g,Ygrid,front="lines",back="lines",add=T)
+play3d(spin3d(axis=c(0,0,1),rpm=3))
+
+#Q8
+
+AutoDataOut <- read.table("train5Out.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+AutoDataGridOut <- read.table("train5GridOut.csv",header=T,sep=",",quote=NULL,stringsAsFactors = F)
+
+if(!require("rgl")) { install.packages("rgl"); require("rgl") }
+
+GridN <- sqrt(nrow(AutoDataGridOut))
+x1g <- matrix(AutoDataGridOut$x1g,ncol=GridN)
+x2g <- matrix(AutoDataGridOut$x2g,ncol=GridN)
+Ygrid <- matrix(AutoDataGridOut$Ygrid,ncol=GridN)
+
+tmp1 <- plot3d(train$Gr.Liv.Area,train$Building_Age ,train$SalePrice,type="p",box=T,axes=T,size=5)
+rgl.bringtotop(stay=T)
+par3d(windowRect=c(630,33,1354,727)) # Positions the rgl window on my computer.
+
+persp3d(x1g,x2g,Ygrid,front="lines",back="lines",add=T)
+play3d(spin3d(axis=c(0,0,1),rpm=3))
+

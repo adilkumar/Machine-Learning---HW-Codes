@@ -1,0 +1,313 @@
+setwd("C:/Users/Adil Ashish Kumar/Desktop/674 - ML/A1")
+AllData <- read.table("GradedHW1-All-Data.csv",header=T,sep=",",
+                      stringsAsFactors = F,na.strings="")
+
+AllData <- AllData[AllData$Bldg.Type=="1Fam",]
+
+RPerm <- sample(nrow(AllData))
+AllData <- AllData[RPerm,]
+
+TrainInd <- ceiling(nrow(AllData)/2)
+ValInd <- ceiling(nrow(AllData)/4)+TrainInd
+
+TrainData <- AllData[1:TrainInd,]
+ValData <- AllData[(TrainInd+1):ValInd,]
+TestData <- AllData[(ValInd+1):nrow(AllData),]
+
+test= read.table("GradedHW1-Test-Data.csv",header=T,sep=",",
+                 stringsAsFactors = F,na.strings="")
+
+train= read.table("GradedHW1-Train-Data.csv",header=T,sep=",",
+                  stringsAsFactors = F,na.strings="")
+
+val= read.table("GradedHW1-Validation-Data.csv",header=T,sep=",",
+                stringsAsFactors = F,na.strings="")
+
+test$Building_Age = 2010 - test$Year.Built
+train$Building_Age = 2010 - train$Year.Built
+val$Building_Age = 2010 - val$Year.Built
+
+namesval=c("Lot.Area","Total.Bsmt.SF","Gr.Liv.Area","Full.Bath","Bedroom.AbvGr","Building_Age","SalePrice")
+namesx=c("Lot.Area","Total.Bsmt.SF","Gr.Liv.Area","Full.Bath","Bedroom.AbvGr","Building_Age")
+namesy=c("SalePrice")
+xtest = test[namesx]
+ytest=test[namesy]
+xtrain = train[namesx]
+ytrain= train[namesy]
+xtrain=as.data.frame(xtrain)
+ytrain=as.data.frame(ytrain)
+ytest=as.data.frame(ytest)
+xtest=as.data.frame(xtest)
+
+val1 = val[namesval]
+
+#colSums(is.na(test))
+#colSums(is.na(train))
+#colSums(is.na(val))
+
+val11 = val1[!is.na(val1$Total.Bsmt.SF),]
+
+xval = val11
+xval$SalePrice=NULL
+yval =val11
+yval = yval[c("SalePrice")]
+yval=as.data.frame(yval)
+xval=as.data.frame(xval)
+
+library(FNN)
+#out <- knn.reg(train=train1,test=val11,y=train1$SalePrice,k=1)
+#pred=out$pred
+#act= val11$SalePrice
+#rmscal = cbind(pred,act)
+#rmscal = as.data.frame(rmscal)
+#rmscal$rms = (rmscal$pred - rmscal$act)^2
+#rmse = (sum(rmscal$rms)/length(rmscal$pred))^0.5
+# Raw unstandardized start
+df2= NULL
+df1=NULL
+j=0
+for (i in 1:40)
+{
+  modelknn <- knn.reg(train=xtrain,test=xval,y=train$SalePrice,k=i)
+  j=j+1
+  pred=modelknn$pred
+  rmscal = cbind(pred,yval)
+  rmscal = as.data.frame(rmscal)
+  rmscal$rms = (rmscal$pred - rmscal$SalePrice)^2
+  rmse = (sum(rmscal$rms)/length(rmscal$pred))^0.5
+  df1$K = j
+  df1$rmse = rmse
+  df2 = rbind(df2,df1)
+  df1=NULL
+  rmscal=NULL
+}
+
+
+df3 = as.data.frame(df2)
+df3$K = as.numeric(df3$K)
+df3$rmse = as.numeric(df3$rmse)
+plot(df3$K,df3$rmse,xlab = "K",ylab = "RMSE",title("Q3. K vs RMSE on Validation set, Raw Unstandardized data"))
+
+model1knn <- knn.reg(train=xtrain,test=xtest,y=train$SalePrice,k=12)
+#library(caret)
+pred2=model1knn$pred
+rmscal2 = cbind(pred2,ytest)
+rmscal2 = as.data.frame(rmscal2)
+rmscal2$rms = (rmscal2$pred2 - rmscal2$SalePrice)^2
+rmse = (sum(rmscal2$rms)/length(rmscal2$pred))^0.5
+# Raw unstd ends
+
+#Raw STD starts
+xtrainstd<- scale(xtrain)
+meanarea = mean(xtrain$Lot.Area)
+sdarea = (var(xtrain$Lot.Area)^0.5)
+
+meanbsmt =  mean(xtrain$Total.Bsmt.SF)
+sdbsmt = (var(xtrain$Total.Bsmt.SF)^0.5)
+
+meanliv = mean(xtrain$Gr.Liv.Area)
+sdliv = (var(xtrain$Gr.Liv.Area)^0.5)
+
+meanbath = mean(xtrain$Full.Bath)
+sdbath = (var(xtrain$Full.Bath)^0.5)
+
+meanbed = mean(xtrain$Bedroom.AbvGr)
+sdbed = (var(xtrain$Bedroom.AbvGr)^0.5)
+
+meanage = mean(xtrain$Building_Age)
+sdage = (var(xtrain$Building_Age)^0.5)
+
+xvalstd1=cbind(xval,meanarea,sdarea,meanbsmt,sdbsmt,meanliv,sdliv,meanbath,sdbath,meanbed,sdbed,meanage,sdage)
+xvalstd = xvalstd1
+xvalstd$Lot.Area = (xvalstd$Lot.Area-xvalstd$meanarea)/xvalstd$sdarea
+xvalstd$Total.Bsmt.SF = (xvalstd$Total.Bsmt.SF-xvalstd$meanbsmt)/xvalstd$sdbsmt
+xvalstd$Gr.Liv.Area = (xvalstd$Gr.Liv.Area-xvalstd$meanliv)/xvalstd$sdliv
+xvalstd$Full.Bath = (xvalstd$Full.Bath-xvalstd$meanbath)/xvalstd$sdbath
+xvalstd$Bedroom.AbvGr = (xvalstd$Bedroom.AbvGr-xvalstd$meanbed)/xvalstd$sdbed
+xvalstd$Building_Age = (xvalstd$Building_Age-xvalstd$meanage)/xvalstd$sdage
+xvalstd = xvalstd[namesx]
+
+xteststd1=cbind(xtest,meanarea,sdarea,meanbsmt,sdbsmt,meanliv,sdliv,meanbath,sdbath,meanbed,sdbed,meanage,sdage)
+xteststd = xteststd1
+xteststd$Lot.Area = (xteststd$Lot.Area-xteststd$meanarea)/xteststd$sdarea
+xteststd$Total.Bsmt.SF = (xteststd$Total.Bsmt.SF-xteststd$meanbsmt)/xteststd$sdbsmt
+xteststd$Gr.Liv.Area = (xteststd$Gr.Liv.Area-xteststd$meanliv)/xteststd$sdliv
+xteststd$Full.Bath = (xteststd$Full.Bath-xteststd$meanbath)/xteststd$sdbath
+xteststd$Bedroom.AbvGr = (xteststd$Bedroom.AbvGr-xteststd$meanbed)/xteststd$sdbed
+xteststd$Building_Age = (xteststd$Building_Age-xteststd$meanage)/xteststd$sdage
+xteststd = xteststd[namesx]
+
+#xteststd=scale(xtest)
+
+df2= NULL
+df1=NULL
+j=0
+for (i in 1:40)
+{
+  modelknn <- knn.reg(train=xtrainstd,test=xvalstd,y=train$SalePrice,k=i)
+  j=j+1
+  pred=modelknn$pred
+  rmscal = cbind(pred,yval)
+  rmscal = as.data.frame(rmscal)
+  rmscal$rms = (rmscal$pred - rmscal$SalePrice)^2
+  rmse = (sum(rmscal$rms)/length(rmscal$pred))^0.5
+  df1$K = j
+  df1$rmse = rmse
+  df2 = rbind(df2,df1)
+  df1=NULL
+  rmscal=NULL
+}
+
+df4 = as.data.frame(df2)
+df4$K = as.numeric(df4$K)
+df4$rmse = as.numeric(df4$rmse)
+plot(df4$K,df4$rmse,xlab = "K",ylab = "RMSE",title("Q5.K vs RMSE Validation set, Raw Standardized data"))
+
+model2knn <- knn.reg(train=xtrainstd,test=xteststd,y=train$SalePrice,k=12)
+
+pred3=model2knn$pred
+rmscal3 = cbind(pred3,ytest)
+rmscal3 = as.data.frame(rmscal3)
+rmscal3$rms = (rmscal3$pred3 - rmscal3$SalePrice)^2
+rmse3 = (sum(rmscal3$rms)/length(rmscal3$pred))^0.5
+# Raw STD ends
+
+# Transform Unstd starts
+ytrain2=ytrain
+ytrain2$SalePrice = ytrain2$SalePrice^0.5
+xtrain2= xtrain
+xtrain2$Lot.Area = log(xtrain2$Lot.Area)
+xtrain2$Total.Bsmt.SF = log(xtrain2$Total.Bsmt.SF+105)
+xtrain2$Gr.Liv.Area = log(xtrain2$Gr.Liv.Area)
+xtrain2$Building_Age = xtrain2$Building_Age^0.5
+
+xval2= xval
+yval2 = yval
+yval2$SalePrice = yval2$SalePrice^0.5
+xval2$Lot.Area = log(xval2$Lot.Area)
+xval2$Total.Bsmt.SF = log(xval2$Total.Bsmt.SF+105)
+xval2$Gr.Liv.Area = log(xval2$Gr.Liv.Area)
+xval2$Building_Age = xval2$Building_Age^0.5
+
+xtest2= xtest
+ytest2 = ytest
+ytest2$SalePrice = ytest2$SalePrice^0.5
+xtest2$Lot.Area = log(xtest2$Lot.Area)
+xtest2$Total.Bsmt.SF = log(xtest2$Total.Bsmt.SF+105)
+xtest2$Gr.Liv.Area = log(xtest2$Gr.Liv.Area)
+xtest2$Building_Age = xtest2$Building_Age^0.5
+
+
+
+df2= NULL
+df1=NULL
+j=0
+for (i in 1:40)
+{
+  modelknn <- knn.reg(train=xtrain2,test=xval2,y=ytrain2$SalePrice,k=i)
+  j=j+1
+  pred=modelknn$pred
+  rmscal = cbind(pred,yval2)
+  rmscal = as.data.frame(rmscal)
+  #rmscal$pred = (rmscal$pred)^2
+  rmscal$rms = (rmscal$pred - rmscal$SalePrice)^2
+  rmse = (sum(rmscal$rms)/length(rmscal$pred))^0.5
+  df1$K = j
+  df1$rmse = rmse
+  df2 = rbind(df2,df1)
+  df1=NULL
+  rmscal=NULL
+}
+
+df5 = as.data.frame(df2)
+df5$K = as.numeric(df5$K)
+df5$rmse = as.numeric(df5$rmse)
+plot(df5$K,df5$rmse,xlab = "K",ylab = "RMSE",title("Q7.K vs RMSE Validation set, Transformed Unstandardized data"))
+
+modelknn3 <- knn.reg(train=xtrain2,test=xtest2,y=ytrain2$SalePrice,k=6)
+pred4=modelknn3$pred
+rmscal4 = cbind(pred4,ytest2)
+rmscal4 = as.data.frame(rmscal4)
+#rmscal4$pred4 = (rmscal4$pred4)^2
+rmscal4$rms = (rmscal4$pred4 - rmscal4$SalePrice)^2
+rmse4 = (sum(rmscal4$rms)/length(rmscal4$pred))^0.5
+# Transform unstd ends
+
+# transform STD starts
+
+xtrain2std<- scale(xtrain2)
+
+mean2area = mean(xtrain2$Lot.Area)
+sd2area = (var(xtrain2$Lot.Area)^0.5)
+
+mean2bsmt =  mean(xtrain2$Total.Bsmt.SF)
+sd2bsmt = (var(xtrain2$Total.Bsmt.SF)^0.5)
+
+mean2liv = mean(xtrain2$Gr.Liv.Area)
+sd2liv = (var(xtrain2$Gr.Liv.Area)^0.5)
+
+mean2bath = mean(xtrain2$Full.Bath)
+sd2bath = (var(xtrain2$Full.Bath)^0.5)
+
+mean2bed = mean(xtrain2$Bedroom.AbvGr)
+sd2bed = (var(xtrain2$Bedroom.AbvGr)^0.5)
+
+mean2age = mean(xtrain2$Building_Age)
+sd2age = (var(xtrain2$Building_Age)^0.5)
+
+xvalstd12=cbind(xval2,mean2area,sd2area,mean2bsmt,sd2bsmt,mean2liv,sd2liv,mean2bath,sd2bath,mean2bed,sd2bed,mean2age,sd2age)
+xval2std = xvalstd12
+xval2std$Lot.Area = (xval2std$Lot.Area-xval2std$mean2area)/xval2std$sd2area
+xval2std$Total.Bsmt.SF = (xval2std$Total.Bsmt.SF-xval2std$mean2bsmt)/xval2std$sd2bsmt
+xval2std$Gr.Liv.Area = (xval2std$Gr.Liv.Area-xval2std$mean2liv)/xval2std$sd2liv
+xval2std$Full.Bath = (xval2std$Full.Bath-xval2std$mean2bath)/xval2std$sd2bath
+xval2std$Bedroom.AbvGr = (xval2std$Bedroom.AbvGr-xval2std$mean2bed)/xval2std$sd2bed
+xval2std$Building_Age = (xval2std$Building_Age-xval2std$mean2age)/xval2std$sd2age
+xval2std = xval2std[namesx]
+
+xteststd12=cbind(xtest2,mean2area,sd2area,mean2bsmt,sd2bsmt,mean2liv,sd2liv,mean2bath,sd2bath,mean2bed,sd2bed,mean2age,sd2age)
+xtest2std = xteststd12
+xtest2std$Lot.Area = (xtest2std$Lot.Area-xtest2std$mean2area)/xtest2std$sd2area
+xtest2std$Total.Bsmt.SF = (xtest2std$Total.Bsmt.SF-xtest2std$mean2bsmt)/xtest2std$sd2bsmt
+xtest2std$Gr.Liv.Area = (xtest2std$Gr.Liv.Area-xtest2std$mean2liv)/xtest2std$sd2liv
+xtest2std$Full.Bath = (xtest2std$Full.Bath-xtest2std$mean2bath)/xtest2std$sd2bath
+xtest2std$Bedroom.AbvGr = (xtest2std$Bedroom.AbvGr-xtest2std$mean2bed)/xtest2std$sd2bed
+xtest2std$Building_Age = (xtest2std$Building_Age-xtest2std$mean2age)/xtest2std$sd2age
+xtest2std = xtest2std[namesx]
+
+
+
+df2= NULL
+df1=NULL
+j=0
+for (i in 1:40)
+{
+  modelknn <- knn.reg(train=xtrain2std,test=xval2std,y=ytrain2$SalePrice,k=i)
+  j=j+1
+  pred=modelknn$pred
+  rmscal = cbind(pred,yval2)
+  rmscal = as.data.frame(rmscal)
+  #rmscal$pred = (rmscal$pred)^2
+  rmscal$rms = (rmscal$pred - rmscal$SalePrice)^2
+  rmse = (sum(rmscal$rms)/length(rmscal$pred))^0.5
+  df1$K = j
+  df1$rmse = rmse
+  df2 = rbind(df2,df1)
+  df1=NULL
+  rmscal=NULL
+}
+
+df6 = as.data.frame(df2)
+df6$K = as.numeric(df6$K)
+df6$rmse = as.numeric(df6$rmse)
+plot(df6$K,df6$rmse,xlab = "K",ylab = "RMSE",title("Q9.K vs RMSE Validation set, Transformed Standardized data"))
+
+
+
+modelknn4 <- knn.reg(train=xtrain2std,test=xtest2std,y=ytrain2$SalePrice,k=8)
+pred5=modelknn4$pred
+rmscal5 = cbind(pred5,ytest2)
+rmscal5 = as.data.frame(rmscal5)
+#rmscal5$pred5 = (rmscal5$pred5)^2
+rmscal5$rms = (rmscal5$pred5 - rmscal5$SalePrice)^2
+rmse5 = (sum(rmscal5$rms)/length(rmscal5$pred))^0.5

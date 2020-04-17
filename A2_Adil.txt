@@ -1,0 +1,108 @@
+setwd( "C:/Users/Adil Ashish Kumar/Desktop/674 - ML/A2")
+# Read n the data
+
+FileName <- "SelfieImageData.csv"
+Labs <- scan(file=FileName,what="xx",nlines=1,sep="|")
+DataAsChars <- matrix(scan(file=FileName,what="xx",sep="|",skip=1),byrow=T,ncol=length(Labs))
+colnames(DataAsChars) <- Labs
+dim(DataAsChars)
+# size in memory in MBs
+as.double(object.size(DataAsChars)/1024/1024)
+
+ImgData <- matrix(as.integer(DataAsChars[,-1]),nrow=nrow(DataAsChars))
+colnames(ImgData) <- Labs[-1]
+rownames(ImgData) <- DataAsChars[,1]
+# size in memory in MBs
+as.double(object.size(ImgData)/1024/1024)
+
+# Take a look
+ImgData[1:8,1:8]
+
+# Free up some memory just in case
+remove(DataAsChars)
+
+# Show each Image
+for(whImg in 1:nrow(ImgData)) {
+  Img <- matrix(ImgData[whImg,],byrow=T,ncol=sqrt(ncol(ImgData)))
+  Img <- apply(Img,2,rev)
+  par(pty="s",mfrow=c(1,1))
+  image(z=t(Img),col = grey.colors(255),useRaster=T)
+  Sys.sleep(1)
+}
+
+avg = apply(ImgData,2,mean)
+Img <- matrix(avg,byrow=T,ncol=sqrt(ncol(avg)))
+Img <- apply(Img,2,rev)
+par(pty="s",mfrow=c(1,1))
+image(z=t(Img),col = grey.colors(255),useRaster=T)
+# Q2
+Xc = sweep(ImgData,2,avg,FUN="-")
+
+
+Sigma <- Xc%*%t(Xc)
+SDecomp <- eigen(Sigma)
+
+l = SDecomp$values/40
+
+v = t(Xc)%*%SDecomp$vectors / (norm(t(Xc)%*%SDecomp$vectors))
+
+#Q5
+par(mfrow=c(1,1))
+plot(l)
+title("Eigenvalues")
+
+#Q6
+max(l)
+
+CumPcnt <- cumsum(l)/sum(l)
+
+
+sum(CumPcnt<0.85)+1
+
+
+NVecs <-20
+PCompNVecDim <- Xc[]%*%v[,1:NVecs]
+dim(PCompNVecDim)
+ReconNVecDim <- t(v[,1:NVecs]%*%t(PCompNVecDim))
+
+i=1
+Img <- matrix(ImgData[i,],byrow=T,ncol=sqrt(ncol(ImgData)))
+Img <- apply(Img,2,rev)
+par(pty="s",mfrow=c(1,1))
+image(z=t(Img),col = grey.colors(255),useRaster=T)
+
+range(ReconNVecDim[i,])
+tmp <- ReconNVecDim[i,] 
+tmp <- round((tmp-min(tmp))/(max(tmp)-min(tmp))*255,0)
+ImageData2 <- matrix(tmp,byrow=T,ncol=sqrt(ncol(ImgData)))
+ImageData2 <- t(apply(ImageData2,2,rev))
+image(z=ImageData2,col = grey.colors(255),useRaster=T)
+
+
+
+
+par(mfrow=c(2,2),pty="s")
+
+for(j in 1:20) {
+  vec <- v[,j]
+  vec <- (vec-min(vec))/(max(vec)-min(vec))
+  vec <- vec*255
+  range(vec)
+  vecImage <- matrix(vec,byrow=T,ncol=sqrt(ncol(ImgData)))
+  vecImage <- t(apply(vecImage,2,rev))
+  image(z=vecImage,col = grey.colors(255),useRaster=T)
+  title(paste("Eigenvector",j))
+}
+
+
+par(mfrow=c(1,1),pty="s")
+
+j=8
+vec <- v[,j]
+vec <- (vec-min(vec))/(max(vec)-min(vec))
+vec <- vec*255
+range(vec)
+vecImage <- matrix(vec,byrow=T,ncol=sqrt(ncol(ImgData)))
+vecImage <- t(apply(vecImage,2,rev))
+image(z=vecImage,col = grey.colors(255),useRaster=T)
+title(paste("Eigenvector",j))
